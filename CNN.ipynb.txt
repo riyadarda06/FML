@@ -1,0 +1,288 @@
+{
+  "metadata": {
+    "kernelspec": {
+      "display_name": "Python 3",
+      "language": "python",
+      "name": "python3"
+    },
+    "language_info": {
+      "name": "python",
+      "version": "3.10.13",
+      "mimetype": "text/x-python",
+      "codemirror_mode": {
+        "name": "ipython",
+        "version": 3
+      },
+      "pygments_lexer": "ipython3",
+      "nbconvert_exporter": "python",
+      "file_extension": ".py"
+    },
+    "kaggle": {
+      "accelerator": "none",
+      "dataSources": [
+        {
+          "sourceId": 6269605,
+          "sourceType": "datasetVersion",
+          "datasetId": 3604054
+        }
+      ],
+      "dockerImageVersionId": 30673,
+      "isInternetEnabled": true,
+      "language": "python",
+      "sourceType": "notebook",
+      "isGpuEnabled": false
+    },
+    "colab": {
+      "name": "HowToUse a416ab",
+      "provenance": []
+    }
+  },
+  "nbformat_minor": 0,
+  "nbformat": 4,
+  "cells": [
+    {
+      "source": [
+        "\n",
+        "# IMPORTANT: RUN THIS CELL IN ORDER TO IMPORT YOUR KAGGLE DATA SOURCES\n",
+        "# TO THE CORRECT LOCATION (/kaggle/input) IN YOUR NOTEBOOK,\n",
+        "# THEN FEEL FREE TO DELETE THIS CELL.\n",
+        "# NOTE: THIS NOTEBOOK ENVIRONMENT DIFFERS FROM KAGGLE'S PYTHON\n",
+        "# ENVIRONMENT SO THERE MAY BE MISSING LIBRARIES USED BY YOUR\n",
+        "# NOTEBOOK.\n",
+        "\n",
+        "import os\n",
+        "import sys\n",
+        "from tempfile import NamedTemporaryFile\n",
+        "from urllib.request import urlopen\n",
+        "from urllib.parse import unquote, urlparse\n",
+        "from urllib.error import HTTPError\n",
+        "from zipfile import ZipFile\n",
+        "import tarfile\n",
+        "import shutil\n",
+        "\n",
+        "CHUNK_SIZE = 40960\n",
+        "DATA_SOURCE_MAPPING = 'animal-dataset:https%3A%2F%2Fstorage.googleapis.com%2Fkaggle-data-sets%2F3604054%2F6269605%2Fbundle%2Farchive.zip%3FX-Goog-Algorithm%3DGOOG4-RSA-SHA256%26X-Goog-Credential%3Dgcp-kaggle-com%2540kaggle-161607.iam.gserviceaccount.com%252F20240719%252Fauto%252Fstorage%252Fgoog4_request%26X-Goog-Date%3D20240719T095732Z%26X-Goog-Expires%3D259200%26X-Goog-SignedHeaders%3Dhost%26X-Goog-Signature%3D3fbf90f5460098b3e8c9304b4be4cd94a7df12aa277bbbef61655cac16855a18f5860a7bde8c9173db8958de51dbca64235c64002d7502f292b1481fff61a5da84138bf15eefe218437edbe797628834d1d55f5434a91e2b58c80233c57ffa5b5b7987fb99d1600036378b399f8404521de386f53a06315abc10ca91256812fad0cc8543c82c2e5a40ec0fc00dc550d9af1fce12d3f28635725a00cb38c7ee42e20e9a3c47a8d1cc906626d5d37c7b8bf60cecd310e505ed6d1032b93e8955cedc1c8338b726029bea8955e1eafd75fdd04b1b163a5e062346105ec627ffa1629bb1a7c18e8c40d388358b19e23f34ad9ec7f1df621e0573b956843fb56a9b50'\n",
+        "\n",
+        "KAGGLE_INPUT_PATH='/kaggle/input'\n",
+        "KAGGLE_WORKING_PATH='/kaggle/working'\n",
+        "KAGGLE_SYMLINK='kaggle'\n",
+        "\n",
+        "!umount /kaggle/input/ 2> /dev/null\n",
+        "shutil.rmtree('/kaggle/input', ignore_errors=True)\n",
+        "os.makedirs(KAGGLE_INPUT_PATH, 0o777, exist_ok=True)\n",
+        "os.makedirs(KAGGLE_WORKING_PATH, 0o777, exist_ok=True)\n",
+        "\n",
+        "try:\n",
+        "  os.symlink(KAGGLE_INPUT_PATH, os.path.join(\"..\", 'input'), target_is_directory=True)\n",
+        "except FileExistsError:\n",
+        "  pass\n",
+        "try:\n",
+        "  os.symlink(KAGGLE_WORKING_PATH, os.path.join(\"..\", 'working'), target_is_directory=True)\n",
+        "except FileExistsError:\n",
+        "  pass\n",
+        "\n",
+        "for data_source_mapping in DATA_SOURCE_MAPPING.split(','):\n",
+        "    directory, download_url_encoded = data_source_mapping.split(':')\n",
+        "    download_url = unquote(download_url_encoded)\n",
+        "    filename = urlparse(download_url).path\n",
+        "    destination_path = os.path.join(KAGGLE_INPUT_PATH, directory)\n",
+        "    try:\n",
+        "        with urlopen(download_url) as fileres, NamedTemporaryFile() as tfile:\n",
+        "            total_length = fileres.headers['content-length']\n",
+        "            print(f'Downloading {directory}, {total_length} bytes compressed')\n",
+        "            dl = 0\n",
+        "            data = fileres.read(CHUNK_SIZE)\n",
+        "            while len(data) > 0:\n",
+        "                dl += len(data)\n",
+        "                tfile.write(data)\n",
+        "                done = int(50 * dl / int(total_length))\n",
+        "                sys.stdout.write(f\"\\r[{'=' * done}{' ' * (50-done)}] {dl} bytes downloaded\")\n",
+        "                sys.stdout.flush()\n",
+        "                data = fileres.read(CHUNK_SIZE)\n",
+        "            if filename.endswith('.zip'):\n",
+        "              with ZipFile(tfile) as zfile:\n",
+        "                zfile.extractall(destination_path)\n",
+        "            else:\n",
+        "              with tarfile.open(tfile.name) as tarfile:\n",
+        "                tarfile.extractall(destination_path)\n",
+        "            print(f'\\nDownloaded and uncompressed: {directory}')\n",
+        "    except HTTPError as e:\n",
+        "        print(f'Failed to load (likely expired) {download_url} to path {destination_path}')\n",
+        "        continue\n",
+        "    except OSError as e:\n",
+        "        print(f'Failed to load {download_url} to path {destination_path}')\n",
+        "        continue\n",
+        "\n",
+        "print('Data source import complete.')\n"
+      ],
+      "metadata": {
+        "id": "11WqUI6QbPEU",
+        "outputId": "dc5000e1-49a3-432a-da90-1437d30a60e3",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "cell_type": "code",
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Downloading animal-dataset, 65318063 bytes compressed\n",
+            "[==================================================] 65318063 bytes downloaded\n",
+            "Downloaded and uncompressed: animal-dataset\n",
+            "Data source import complete.\n"
+          ]
+        }
+      ],
+      "execution_count": 1
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "# Animal Dataset\n",
+        "## Step 1 : Import libraries"
+      ],
+      "metadata": {
+        "id": "HlQKU_D5bPEY"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "!pip install scikit-learn"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2024-03-29T19:18:07.816141Z",
+          "iopub.execute_input": "2024-03-29T19:18:07.816551Z",
+          "iopub.status.idle": "2024-03-29T19:18:25.119898Z",
+          "shell.execute_reply.started": "2024-03-29T19:18:07.81652Z",
+          "shell.execute_reply": "2024-03-29T19:18:25.118632Z"
+        },
+        "trusted": true,
+        "id": "bRA0uvTZbPEa",
+        "outputId": "1adb3e80-3123-413a-f4f9-a9d2e47d6579",
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        }
+      },
+      "execution_count": 2,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Requirement already satisfied: scikit-learn in /usr/local/lib/python3.10/dist-packages (1.2.2)\n",
+            "Requirement already satisfied: numpy>=1.17.3 in /usr/local/lib/python3.10/dist-packages (from scikit-learn) (1.25.2)\n",
+            "Requirement already satisfied: scipy>=1.3.2 in /usr/local/lib/python3.10/dist-packages (from scikit-learn) (1.11.4)\n",
+            "Requirement already satisfied: joblib>=1.1.1 in /usr/local/lib/python3.10/dist-packages (from scikit-learn) (1.4.2)\n",
+            "Requirement already satisfied: threadpoolctl>=2.0.0 in /usr/local/lib/python3.10/dist-packages (from scikit-learn) (3.5.0)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import numpy as np\n",
+        "from sklearn.datasets import load_files"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2024-03-29T19:22:10.504555Z",
+          "iopub.execute_input": "2024-03-29T19:22:10.50495Z",
+          "iopub.status.idle": "2024-03-29T19:22:10.510091Z",
+          "shell.execute_reply.started": "2024-03-29T19:22:10.504917Z",
+          "shell.execute_reply": "2024-03-29T19:22:10.508868Z"
+        },
+        "trusted": true,
+        "id": "vTGgrbKXbPEa"
+      },
+      "execution_count": 4,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "## Step 2: Define working directories for both train and test data."
+      ],
+      "metadata": {
+        "id": "4CvMJvo-bPEb"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "train_data_dir = r'/kaggle/input/animal-dataset/dataset/Training'\n",
+        "train_data = load_files(train_data_dir)\n",
+        "test_data_dir = r'/kaggle/input/animal-dataset/dataset/Testing'\n",
+        "test_data = load_files(test_data_dir)"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2024-03-29T19:22:20.930389Z",
+          "iopub.execute_input": "2024-03-29T19:22:20.930792Z",
+          "iopub.status.idle": "2024-03-29T19:22:25.612655Z",
+          "shell.execute_reply.started": "2024-03-29T19:22:20.930763Z",
+          "shell.execute_reply": "2024-03-29T19:22:25.61148Z"
+        },
+        "trusted": true,
+        "id": "mVpNwgwKbPEb"
+      },
+      "execution_count": 5,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "## Step 3:\n",
+        "- X: list of file names\n",
+        "- y: target classes\n",
+        "- labels: labels of all unique target classes"
+      ],
+      "metadata": {
+        "id": "U814MmWsbPEb"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "X = np.array(train_data['filenames'])\n",
+        "y = np.array(train_data['target'])\n",
+        "labels = np.array(train_data['target_names'])"
+      ],
+      "metadata": {
+        "execution": {
+          "iopub.status.busy": "2024-03-29T19:22:42.481585Z",
+          "iopub.execute_input": "2024-03-29T19:22:42.482658Z",
+          "iopub.status.idle": "2024-03-29T19:22:42.488369Z",
+          "shell.execute_reply.started": "2024-03-29T19:22:42.482622Z",
+          "shell.execute_reply": "2024-03-29T19:22:42.487097Z"
+        },
+        "trusted": true,
+        "id": "QAbIU2BRbPEc"
+      },
+      "execution_count": 6,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "## Now you can clean and use this dataset to practice basic CNN techniques"
+      ],
+      "metadata": {
+        "id": "QMdRCo5-bPEc"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [],
+      "metadata": {
+        "id": "gSAkL5m5bPEc"
+      },
+      "execution_count": 6,
+      "outputs": []
+    }
+  ]
+}
